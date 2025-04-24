@@ -230,7 +230,7 @@ function ExecuteAutomation($data) {
 
         # Executar o script Node.js com Puppeteer
         $nodeExe = "node"
-        $debug = $false  # Definir como $true para modo de depuração
+        $debug = $true  # Modo de depuração ativado para mostrar o navegador
 
         # Construir argumentos para o script
         $arguments = @(

@@ -33,9 +33,9 @@ async function runAutomation(pin, name, debug = false) {
     // Iniciar o navegador
     log("Iniciando o navegador Chrome...");
 
-    // Configuração específica para ambiente Vercel (serverless)
+    // Configuração do navegador
     const options = {
-      headless: "new", // Sempre usar modo headless
+      headless: debug ? false : "new", // Modo não-headless se debug=true
       args: [
         "--ignore-certificate-errors",
         "--no-sandbox",
@@ -44,9 +44,10 @@ async function runAutomation(pin, name, debug = false) {
         "--disable-gpu",
         "--no-first-run",
         "--no-zygote",
-        "--single-process",
+        "--window-size=1280,720", // Tamanho da janela para melhor visualização
       ],
       ignoreHTTPSErrors: true,
+      defaultViewport: { width: 1280, height: 720 }, // Viewport maior
     };
 
     // Em ambiente de desenvolvimento local, podemos usar o Chrome instalado
@@ -843,7 +844,12 @@ async function runAutomation(pin, name, debug = false) {
   } finally {
     // Fechar o navegador após alguns segundos para permitir visualização em modo debug
     if (browser) {
-      const timeout = debug ? 30000 : 5000;
+      const timeout = debug ? 60000 : 5000; // 1 minuto em modo debug
+      log(
+        `Navegador será fechado automaticamente em ${
+          timeout / 1000
+        } segundos...`
+      );
       setTimeout(async () => {
         try {
           await browser.close();
