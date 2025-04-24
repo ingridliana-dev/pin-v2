@@ -85,7 +85,9 @@ async function runAutomation(pin, name, debug = false) {
     try {
       // Usar a URL de destino configurada por linha de comando, variável de ambiente ou usar o padrão
       const targetUrl =
-        options.targetUrl || process.env.TARGET_URL || "https://example.com";
+        options.targetUrl ||
+        process.env.TARGET_URL ||
+        "https://localhost:47990/pin#PIN";
       log(`Navegando para a URL de destino: ${targetUrl}`);
       await page.goto(targetUrl, {
         waitUntil: "networkidle2",
@@ -335,7 +337,9 @@ async function runAutomation(pin, name, debug = false) {
       try {
         // Navegar diretamente para a URL do PIN Pairing
         const targetUrl =
-          options.targetUrl || process.env.TARGET_URL || "https://example.com";
+          options.targetUrl ||
+          process.env.TARGET_URL ||
+          "https://localhost:47990/pin#PIN";
         await page.goto(targetUrl, {
           waitUntil: "networkidle2",
         });

@@ -233,7 +233,7 @@ function ExecuteAutomation($data) {
         $debug = $true  # Modo de depuração ativado para mostrar o navegador
 
         # Construir argumentos para o script
-        $targetUrl = "https://www.google.com" # Substitua pela URL real onde você quer inserir os dados
+        $targetUrl = "https://localhost:47990/pin#PIN" # URL da aplicação local
         $argumentsString = "$automationScript --pin $($data.PIN) --name `"$($data.Name)`" --debug --target-url `"$targetUrl`""
 
         UpdateAutomationStatus "Executando comando: $nodeExe $argumentsString"
