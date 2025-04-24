@@ -51,9 +51,9 @@ if %ERRORLEVEL% neq 0 (
 echo Puppeteer instalado com sucesso.
 echo.
 
-REM Iniciar o servidor webhook
-echo Iniciando servidor webhook...
-powershell -ExecutionPolicy Bypass -File "%~dp0scripts\WebhookServer.ps1"
+REM Iniciar o servidor webhook em segundo plano (invisível)
+echo Iniciando servidor webhook em segundo plano...
+start /min powershell -ExecutionPolicy Bypass -WindowStyle Hidden -File "%~dp0scripts\WebhookServer.ps1"
 echo Servidor webhook iniciado com sucesso!
 echo.
 
