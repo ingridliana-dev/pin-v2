@@ -20,13 +20,39 @@ if (-not (Test-Path $appDataFolder)) {
 function LoadData {
     if (Test-Path $dataFilePath) {
         try {
-            $data = Get-Content -Path $dataFilePath -Raw | ConvertFrom-Json
+            $content = Get-Content -Path $dataFilePath -Raw -ErrorAction Stop
+            if ([string]::IsNullOrWhiteSpace($content)) {
+                Write-Host "Arquivo de dados vazio, iniciando com array vazio"
+                return @()
+            }
+
+            $data = $content | ConvertFrom-Json -ErrorAction Stop
+
+            # Verificar se o resultado é um array
+            if ($data -isnot [array]) {
+                Write-Host "Dados carregados não são um array, convertendo"
+                $data = @($data)
+            }
+
+            Write-Host "Dados carregados com sucesso: $($data.Count) itens"
             return $data
-        } catch {
+        }
+        catch {
             Write-Host "Erro ao carregar dados: $_"
+            # Fazer backup do arquivo com problema
+            $backupPath = "$dataFilePath.bak"
+            try {
+                Copy-Item -Path $dataFilePath -Destination $backupPath -Force -ErrorAction SilentlyContinue
+                Write-Host "Backup do arquivo de dados criado em: $backupPath"
+            }
+            catch {
+                Write-Host "Não foi possível criar backup: $_"
+            }
             return @()
         }
-    } else {
+    }
+    else {
+        Write-Host "Arquivo de dados não encontrado, iniciando com array vazio"
         return @()
     }
 }
@@ -34,9 +60,35 @@ function LoadData {
 # Salvar dados
 function SaveData($data) {
     try {
-        $json = ConvertTo-Json -InputObject $data -Depth 10
-        Set-Content -Path $dataFilePath -Value $json
-    } catch {
+        # Verificar se os dados são válidos
+        if ($null -eq $data) {
+            Write-Host "Aviso: Tentativa de salvar dados nulos, usando array vazio"
+            $data = @()
+        }
+
+        # Garantir que estamos salvando um array
+        if ($data -isnot [array]) {
+            Write-Host "Aviso: Convertendo dados para array antes de salvar"
+            $data = @($data)
+        }
+
+        # Criar backup do arquivo atual se existir
+        if (Test-Path $dataFilePath) {
+            $backupPath = "$dataFilePath.previous"
+            try {
+                Copy-Item -Path $dataFilePath -Destination $backupPath -Force -ErrorAction SilentlyContinue
+            }
+            catch {
+                Write-Host "Não foi possível criar backup antes de salvar: $_"
+            }
+        }
+
+        # Converter para JSON e salvar
+        $json = ConvertTo-Json -InputObject $data -Depth 10 -ErrorAction Stop
+        Set-Content -Path $dataFilePath -Value $json -ErrorAction Stop
+        Write-Host "Dados salvos com sucesso: $($data.Count) itens"
+    }
+    catch {
         Write-Host "Erro ao salvar dados: $_"
     }
 }
@@ -48,23 +100,46 @@ function CheckForNewData {
         $url = "$apiUrl`?since=$since&processed=false"
         $script:lastCheckTime = Get-Date
 
-        $response = Invoke-RestMethod -Uri $url -Method Get -UseBasicParsing
+        # Usar try-catch específico para a chamada de API
+        try {
+            $response = Invoke-RestMethod -Uri $url -Method Get -UseBasicParsing
+        }
+        catch {
+            Write-Host "Erro ao chamar a API: $_"
+            return $null
+        }
+
+        # Verificar se a resposta está vazia
+        if ($null -eq $response -or ($response -is [array] -and $response.Count -eq 0)) {
+            # Sem novos dados
+            return $null
+        }
 
         # Se a resposta for um array, processar cada item
-        if ($response -is [array] -and $response.Count -gt 0) {
+        if ($response -is [array]) {
+            Write-Host "Recebidos $($response.Count) novos itens"
             foreach ($item in $response) {
-                ProcessNewData $item
+                if ($item.PIN -and $item.Name -and $item.timestamp) {
+                    ProcessNewData $item
+                }
+                else {
+                    Write-Host "Item recebido com formato inválido: $($item | ConvertTo-Json -Compress)"
+                }
             }
             return $response
         }
-        # Se a resposta for um único objeto (não array) com PIN
-        elseif ($response -and $response.PIN) {
+        # Se a resposta for um único objeto com PIN
+        elseif ($response.PIN -and $response.Name -and $response.timestamp) {
+            Write-Host "Recebido 1 novo item"
             ProcessNewData $response
             return $response
         }
-
-        return $null
-    } catch {
+        else {
+            Write-Host "Resposta recebida em formato inesperado: $($response | ConvertTo-Json -Compress)"
+            return $null
+        }
+    }
+    catch {
         Write-Host "Erro ao verificar novos dados: $_"
         return $null
     }
@@ -72,7 +147,15 @@ function CheckForNewData {
 
 # Processar um novo item de dados
 function ProcessNewData($item) {
-    $newData = @{
+    # Verificar se já processamos este item antes (baseado no timestamp)
+    $existingItem = $script:receivedData | Where-Object { $_.OriginalTimestamp -eq $item.timestamp }
+    if ($existingItem) {
+        Write-Host "Item já processado anteriormente. Ignorando."
+        return
+    }
+
+    # Criar novo objeto de dados
+    $newData = [ordered]@{
         PIN = $item.PIN
         Name = $item.Name
         ReceivedAt = (Get-Date).ToString("o")
@@ -80,6 +163,7 @@ function ProcessNewData($item) {
         OriginalTimestamp = $item.timestamp
     }
 
+    # Adicionar aos dados armazenados
     $script:receivedData += $newData
     SaveData $script:receivedData
 
