@@ -6,7 +6,7 @@ Este aplicativo roda em segundo plano no Windows e recebe dados do formulário w
 
 COMO USAR:
 ---------
-1. Execute o arquivo "PINReceiverApp.exe"
+1. Execute o arquivo "PINReceiver.bat"
 2. O aplicativo será iniciado e ficará rodando em segundo plano
 3. Um ícone será exibido na bandeja do sistema (próximo ao relógio)
 4. Clique com o botão direito no ícone para acessar as opções:
@@ -26,7 +26,7 @@ FUNCIONALIDADES:
 REQUISITOS:
 ---------
 - Windows 7 ou superior
-- .NET Framework 4.7.2 ou superior
+- PowerShell 3.0 ou superior (já incluído no Windows 7 SP1 e posteriores)
 - Conexão com a internet
 
 NOTAS:
@@ -35,3 +35,4 @@ NOTAS:
 - Os dados são mantidos mesmo após fechar o aplicativo
 - O aplicativo verifica novos dados a cada 30 segundos
 - A automação é executada automaticamente quando novos dados são recebidos
+- Não é necessário instalar nada, basta executar o arquivo .bat
