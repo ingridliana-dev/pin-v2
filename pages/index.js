@@ -1,44 +1,70 @@
-import { useState } from 'react';
-import Head from 'next/head';
-import styles from '../styles/Home.module.css';
+import { useState, useEffect } from "react";
+import Head from "next/head";
+import styles from "../styles/Home.module.css";
 
 export default function Home() {
-  const [pin, setPin] = useState('');
-  const [name, setName] = useState('');
-  const [message, setMessage] = useState('');
+  const [pin, setPin] = useState("");
+  const [name, setName] = useState("");
+  const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [webhookUrl, setWebhookUrl] = useState("");
+  const [useWebhook, setUseWebhook] = useState(false);
+
+  // Carregar a URL do webhook do localStorage
+  useEffect(() => {
+    const savedUrl = localStorage.getItem("webhookUrl");
+    if (savedUrl) {
+      setWebhookUrl(savedUrl);
+    }
+  }, []);
+
+  // Salvar a URL do webhook no localStorage
+  const saveWebhookUrl = () => {
+    if (webhookUrl) {
+      localStorage.setItem("webhookUrl", webhookUrl);
+      setMessage("URL do webhook salva com sucesso!");
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!pin || !name) {
-      setMessage('Por favor, preencha todos os campos.');
+      setMessage("Por favor, preencha todos os campos.");
       return;
     }
-    
+
     setLoading(true);
-    setMessage('');
-    
+    setMessage("");
+
     try {
-      const response = await fetch('/api/data', {
-        method: 'POST',
+      // Determinar qual endpoint usar
+      const endpoint = useWebhook && webhookUrl ? "/api/webhook" : "/api/data";
+
+      const response = await fetch(endpoint, {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify({ pin, name }),
+        body: JSON.stringify({
+          pin,
+          name,
+          // Incluir a URL do webhook se estiver usando o endpoint de webhook
+          ...(useWebhook && webhookUrl ? { webhookUrl } : {}),
+        }),
       });
-      
+
       const data = await response.json();
-      
+
       if (data.success) {
-        setMessage('Dados enviados com sucesso!');
-        setPin('');
-        setName('');
+        setMessage("Dados enviados com sucesso!");
+        setPin("");
+        setName("");
       } else {
-        setMessage('Erro ao enviar dados: ' + data.error);
+        setMessage("Erro ao enviar dados: " + data.error);
       }
     } catch (error) {
-      setMessage('Erro ao enviar dados: ' + error.message);
+      setMessage("Erro ao enviar dados: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -53,9 +79,7 @@ export default function Home() {
       </Head>
 
       <main className={styles.main}>
-        <h1 className={styles.title}>
-          PIN Pairing
-        </h1>
+        <h1 className={styles.title}>PIN Pairing</h1>
 
         <p className={styles.description}>
           Preencha os campos abaixo para enviar um PIN
@@ -73,7 +97,7 @@ export default function Home() {
               required
             />
           </div>
-          
+
           <div className={styles.formGroup}>
             <label htmlFor="name">Nome:</label>
             <input
@@ -85,20 +109,52 @@ export default function Home() {
               required
             />
           </div>
-          
-          <button 
-            type="submit" 
-            className={styles.button}
-            disabled={loading}
-          >
-            {loading ? 'Enviando...' : 'Enviar'}
+
+          <div className={styles.webhookSection}>
+            <div className={styles.webhookToggle}>
+              <input
+                type="checkbox"
+                id="useWebhook"
+                checked={useWebhook}
+                onChange={(e) => setUseWebhook(e.target.checked)}
+              />
+              <label htmlFor="useWebhook">
+                Usar Webhook (Execução Imediata)
+              </label>
+            </div>
+
+            {useWebhook && (
+              <div className={styles.webhookUrl}>
+                <label htmlFor="webhookUrl">URL do Webhook:</label>
+                <div className={styles.webhookUrlInput}>
+                  <input
+                    type="text"
+                    id="webhookUrl"
+                    value={webhookUrl}
+                    onChange={(e) => setWebhookUrl(e.target.value)}
+                    placeholder="http://localhost:8080"
+                  />
+                  <button
+                    type="button"
+                    onClick={saveWebhookUrl}
+                    className={styles.saveButton}
+                  >
+                    Salvar
+                  </button>
+                </div>
+                <p className={styles.webhookHelp}>
+                  Para execução imediata, execute o arquivo PIN-Webhook.bat no
+                  seu computador.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <button type="submit" className={styles.button} disabled={loading}>
+            {loading ? "Enviando..." : "Enviar"}
           </button>
-          
-          {message && (
-            <p className={styles.message}>
-              {message}
-            </p>
-          )}
+
+          {message && <p className={styles.message}>{message}</p>}
         </form>
       </main>
     </div>

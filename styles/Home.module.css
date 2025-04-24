@@ -89,3 +89,67 @@
   background-color: #e8f5e9;
   color: #2e7d32;
 }
+
+.webhookSection {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background-color: #f0f4f8;
+  border-radius: 4px;
+  border: 1px dashed #ccc;
+}
+
+.webhookToggle {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.webhookToggle input[type="checkbox"] {
+  margin-right: 0.5rem;
+  width: auto;
+}
+
+.webhookToggle label {
+  font-weight: 600;
+  margin-bottom: 0;
+}
+
+.webhookUrl {
+  margin-top: 1rem;
+}
+
+.webhookUrlInput {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.webhookUrlInput input {
+  flex: 1;
+  padding: 0.75rem;
+  font-size: 1rem;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+}
+
+.saveButton {
+  padding: 0.75rem 1rem;
+  font-size: 0.9rem;
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.saveButton:hover {
+  background-color: #218838;
+}
+
+.webhookHelp {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: #6c757d;
+  font-style: italic;
+}
