@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Head from "next/head";
 import styles from "../styles/Home.module.css";
 
@@ -7,23 +7,8 @@ export default function Home() {
   const [name, setName] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  const [webhookUrl, setWebhookUrl] = useState("http://localhost:8080");
-
-  // Carregar a URL do webhook do localStorage
-  useEffect(() => {
-    const savedUrl = localStorage.getItem("webhookUrl");
-    if (savedUrl) {
-      setWebhookUrl(savedUrl);
-    }
-  }, []);
-
-  // Salvar a URL do webhook no localStorage
-  const saveWebhookUrl = () => {
-    if (webhookUrl) {
-      localStorage.setItem("webhookUrl", webhookUrl);
-      setMessage("URL do webhook salva com sucesso!");
-    }
-  };
+  // URL fixa do webhook
+  const webhookUrl = "http://localhost:8080";
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -111,34 +96,6 @@ export default function Home() {
               placeholder="Digite seu nome"
               required
             />
-          </div>
-
-          <div className={styles.webhookSection}>
-            <div className={styles.webhookUrl}>
-              <label htmlFor="webhookUrl">
-                Configuração do Webhook (Execução Imediata):
-              </label>
-              <div className={styles.webhookUrlInput}>
-                <input
-                  type="text"
-                  id="webhookUrl"
-                  value={webhookUrl}
-                  onChange={(e) => setWebhookUrl(e.target.value)}
-                  placeholder="http://localhost:8080"
-                />
-                <button
-                  type="button"
-                  onClick={saveWebhookUrl}
-                  className={styles.saveButton}
-                >
-                  Salvar
-                </button>
-              </div>
-              <p className={styles.webhookHelp}>
-                Para execução imediata, execute o arquivo PIN-Webhook.bat no seu
-                computador.
-              </p>
-            </div>
           </div>
 
           <button type="submit" className={styles.button} disabled={loading}>
