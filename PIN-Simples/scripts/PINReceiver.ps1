@@ -6,6 +6,39 @@ Add-Type -AssemblyName System.Web
 # Configurar TLS 1.2 para conexões HTTPS
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
+# Configurar codificação UTF-8 para evitar problemas com caracteres especiais
+$OutputEncoding = [System.Text.Encoding]::UTF8
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
+# Ignorar erros de certificado SSL (apenas para desenvolvimento)
+if (-not ([System.Management.Automation.PSTypeName]'ServerCertificateValidationCallback').Type) {
+    $certCallback = @"
+    using System;
+    using System.Net;
+    using System.Net.Security;
+    using System.Security.Cryptography.X509Certificates;
+    public class ServerCertificateValidationCallback
+    {
+        public static void Ignore()
+        {
+            ServicePointManager.ServerCertificateValidationCallback +=
+                delegate
+                (
+                    Object obj,
+                    X509Certificate certificate,
+                    X509Chain chain,
+                    SslPolicyErrors errors
+                )
+                {
+                    return true;
+                };
+        }
+    }
+"@
+    Add-Type $certCallback
+}
+[ServerCertificateValidationCallback]::Ignore()
+
 # Função para registrar logs
 function Log($message, $color = "White") {
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -107,56 +140,43 @@ function CheckForNewData() {
     Log "Verificando novos dados na API..." "Cyan"
 
     try {
-        # Usar uma data mais antiga para garantir que não perdemos dados
-        Log "Última verificação: $script:lastCheckDate" "Cyan"
-
         # Não usar parâmetro de data para garantir que capturamos todos os dados
         $apiUrl = "https://pin-v2-six.vercel.app/api/data?processed=false"
-
-        # Atualizar a última data verificada para a próxima chamada
-        $script:lastCheckDate = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
         Log "URL: $apiUrl" "Cyan"
 
-        # Adicionar cabeçalhos para evitar problemas de cache
-        $headers = @{
-            "Cache-Control" = "no-cache"
-            "Pragma" = "no-cache"
-            "If-Modified-Since" = "0"
-        }
-
-        $response = Invoke-RestMethod -Uri $apiUrl -Method Get -Headers $headers
+        # Usar método simples para obter dados
+        $response = Invoke-WebRequest -Uri $apiUrl -UseBasicParsing
         Log "Resposta da API recebida com sucesso" "Green"
 
-        # Verificar se a resposta é um array ou um objeto único
+        # Processar a resposta
         $items = @()
 
-        # Converter a resposta para string para debug
-        $responseType = if ($response -eq $null) { "null" } else { $response.GetType().FullName }
-        $responseJson = if ($response -eq $null) { "null" } else {
-            try { $response | ConvertTo-Json -Depth 3 -Compress } catch { "Não foi possível converter para JSON" }
-        }
-        Log "Tipo de resposta: $responseType" "Cyan"
-        Log "Conteúdo da resposta: $responseJson" "Cyan"
+        # Extrair o conteúdo da resposta
+        $responseContent = $response.Content
+        Log "Conteúdo da resposta: $responseContent" "Cyan"
 
-        if ($response -is [Array]) {
-            $items = $response
-            Log "Recebidos $($items.Count) novos itens (array)" "Green"
-        } elseif ($response -is [PSCustomObject]) {
-            # Se for um objeto único, adicionar ao array
-            if ($response.pin -and $response.name) {
-                $items = @($response)
-                Log "Recebido 1 novo item (objeto)" "Green"
-            } else {
-                # Verificar se é um array dentro de um objeto
-                if ($response.PSObject.Properties.Name -contains "value" -and $response.value -is [Array]) {
-                    $items = $response.value
-                    Log "Recebidos $($items.Count) novos itens (array dentro de objeto)" "Green"
+        # Converter o conteúdo JSON para objeto PowerShell
+        try {
+            $responseData = $responseContent | ConvertFrom-Json
+
+            # Verificar se é um array
+            if ($responseData -is [Array]) {
+                $items = $responseData
+                Log "Recebidos $($items.Count) novos itens (array)" "Green"
+            }
+            # Verificar se é um objeto único
+            elseif ($responseData -is [PSCustomObject]) {
+                if ($responseData.pin -and $responseData.name) {
+                    $items = @($responseData)
+                    Log "Recebido 1 novo item (objeto)" "Green"
                 } else {
                     Log "Resposta não contém itens válidos" "Yellow"
                 }
+            } else {
+                Log "Tipo de resposta desconhecido" "Yellow"
             }
-        } else {
-            Log "Tipo de resposta desconhecido: $responseType" "Yellow"
+        } catch {
+            Log "Erro ao processar resposta JSON: $_" "Red"
         }
 
         if ($items.Count -gt 0) {
@@ -175,14 +195,8 @@ function CheckForNewData() {
                     Log "URL: $markUrl" "Cyan"
 
                     try {
-                        # Adicionar cabeçalhos para evitar problemas de cache
-                        $headers = @{
-                            "Cache-Control" = "no-cache"
-                            "Pragma" = "no-cache"
-                            "If-Modified-Since" = "0"
-                        }
-
-                        $markResponse = Invoke-RestMethod -Uri $markUrl -Method Get -Headers $headers
+                        # Usar método simples para marcar como processado
+                        $markResponse = Invoke-WebRequest -Uri $markUrl -UseBasicParsing
                         Log "Item marcado como processado com sucesso" "Green"
                     } catch {
                         Log "Erro ao marcar item como processado: $_" "Red"
