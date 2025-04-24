@@ -217,22 +217,41 @@ function ExecuteAutomation($data) {
         SaveData $script:receivedData
         UpdateAutomationStatus "Executando automação para PIN: $($data.PIN)..."
 
-        # Simular passos da automação
-        Start-Sleep -Seconds 1
-        UpdateAutomationStatus "Preenchendo PIN: $($data.PIN)..."
-        Start-Sleep -Milliseconds 500
+        # Obter o caminho do script de automação
+        $scriptDir = Split-Path -Parent $PSScriptRoot
+        $automationScript = Join-Path -Path $scriptDir -ChildPath "automation.js"
 
-        UpdateAutomationStatus "Preenchendo Nome: $($data.Name)..."
-        Start-Sleep -Milliseconds 500
+        # Verificar se o script existe
+        if (-not (Test-Path $automationScript)) {
+            throw "Script de automação não encontrado: $automationScript"
+        }
 
-        UpdateAutomationStatus "Enviando dados..."
-        Start-Sleep -Seconds 1
+        UpdateAutomationStatus "Iniciando Puppeteer para PIN: $($data.PIN), Nome: $($data.Name)..."
 
-        # Aqui você pode implementar a automação real
-        # Por exemplo, usando SendKeys para enviar teclas para aplicativos:
-        # [System.Windows.Forms.SendKeys]::SendWait($data.PIN)
-        # [System.Windows.Forms.SendKeys]::SendWait("{TAB}")
-        # [System.Windows.Forms.SendKeys]::SendWait($data.Name)
+        # Executar o script Node.js com Puppeteer
+        $nodeExe = "node"
+        $debug = $false  # Definir como $true para modo de depuração
+
+        # Construir argumentos para o script
+        $arguments = @(
+            $automationScript,
+            "--pin", $data.PIN,
+            "--name", $data.Name
+        )
+
+        if ($debug) {
+            $arguments += "--debug"
+        }
+
+        # Executar o comando Node.js
+        $process = Start-Process -FilePath $nodeExe -ArgumentList $arguments -NoNewWindow -PassThru -Wait
+
+        # Verificar o código de saída
+        if ($process.ExitCode -ne 0) {
+            throw "Erro na execução do script de automação. Código de saída: $($process.ExitCode)"
+        }
+
+        UpdateAutomationStatus "Puppeteer executado com sucesso!"
 
         # Atualizar status de conclusão
         $data.AutomationStatus = "Concluída com sucesso"

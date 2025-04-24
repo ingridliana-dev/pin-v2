@@ -1,4 +1,14 @@
 const puppeteer = require("puppeteer");
+const { program } = require("commander");
+
+// Configurar argumentos de linha de comando
+program
+  .option("--pin <pin>", "PIN de 4 dígitos")
+  .option("--name <name>", "Nome do usuário")
+  .option("--debug", "Executar em modo de depuração")
+  .parse(process.argv);
+
+const options = program.opts();
 
 /**
  * Executa a automação para inserir o PIN e nome no sistema
@@ -846,4 +856,33 @@ async function runAutomation(pin, name, debug = false) {
   }
 }
 
-module.exports = { runAutomation };
+// Executar a automação se chamado diretamente (não como módulo)
+if (require.main === module) {
+  // Verificar se os parâmetros necessários foram fornecidos
+  if (!options.pin || !options.name) {
+    console.error("Erro: PIN e nome são obrigatórios");
+    console.error(
+      'Uso: node automation.js --pin 1234 --name "Nome do Usuário" [--debug]'
+    );
+    process.exit(1);
+  }
+
+  // Executar a automação
+  runAutomation(options.pin, options.name, options.debug || false)
+    .then((result) => {
+      if (result.success) {
+        console.log("Automação concluída com sucesso!");
+        process.exit(0);
+      } else {
+        console.error(`Erro na automação: ${result.error}`);
+        process.exit(1);
+      }
+    })
+    .catch((error) => {
+      console.error(`Erro não tratado: ${error.message}`);
+      process.exit(1);
+    });
+} else {
+  // Exportar a função para uso como módulo
+  module.exports = { runAutomation };
+}
