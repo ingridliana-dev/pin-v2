@@ -233,22 +233,38 @@ function ExecuteAutomation($data) {
         $debug = $true  # Modo de depuração ativado para mostrar o navegador
 
         # Construir argumentos para o script
-        $arguments = @(
-            $automationScript,
-            "--pin", $data.PIN,
-            "--name", $data.Name
-        )
+        $targetUrl = "https://www.google.com" # Substitua pela URL real onde você quer inserir os dados
+        $argumentsString = "$automationScript --pin $($data.PIN) --name `"$($data.Name)`" --debug --target-url `"$targetUrl`""
 
-        if ($debug) {
-            $arguments += "--debug"
-        }
+        UpdateAutomationStatus "Executando comando: $nodeExe $argumentsString"
 
-        # Executar o comando Node.js
-        $process = Start-Process -FilePath $nodeExe -ArgumentList $arguments -NoNewWindow -PassThru -Wait
+        try {
+            # Criar um arquivo de log para a saída do processo
+            $logFile = Join-Path -Path $appDataFolder -ChildPath "automation-log.txt"
+            UpdateAutomationStatus "Log será salvo em: $logFile"
 
-        # Verificar o código de saída
-        if ($process.ExitCode -ne 0) {
-            throw "Erro na execução do script de automação. Código de saída: $($process.ExitCode)"
+            # Executar o comando Node.js em uma nova janela para que seja visível
+            $process = Start-Process -FilePath $nodeExe -ArgumentList $argumentsString -NoNewWindow:$false -PassThru
+
+            UpdateAutomationStatus "Processo iniciado com ID: $($process.Id)"
+
+            # Aguardar um pouco para que o processo inicie
+            Start-Sleep -Seconds 5
+
+            # Verificar se o processo ainda está em execução
+            if (-not $process.HasExited) {
+                UpdateAutomationStatus "Automação em execução. Navegador deve estar visível."
+            } else {
+                # Se o processo já terminou, verificar o código de saída
+                if ($process.ExitCode -ne 0) {
+                    throw "Erro na execução do script de automação. Código de saída: $($process.ExitCode)"
+                } else {
+                    UpdateAutomationStatus "Automação concluída rapidamente com sucesso."
+                }
+            }
+        } catch {
+            UpdateAutomationStatus "Erro ao iniciar processo: $_"
+            throw
         }
 
         UpdateAutomationStatus "Puppeteer executado com sucesso!"
