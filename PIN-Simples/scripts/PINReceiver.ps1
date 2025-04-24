@@ -1,5 +1,8 @@
 # Script simplificado para receber dados e executar automação (modo webhook)
 
+# Adicionar referência ao System.Web para codificação de URL
+Add-Type -AssemblyName System.Web
+
 # Função para registrar logs
 function Log($message, $color = "White") {
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -91,9 +94,12 @@ function CheckForNewData() {
     Log "Verificando novos dados na API..." "Cyan"
 
     try {
-        # Usar a data atual para verificar novos dados
-        $currentDate = Get-Date -Format 'yyyy-MM-ddTHH:mm:ss'
-        $apiUrl = "https://pin-v2-six.vercel.app/api/data?since=$currentDate&processed=false"
+        # Usar a última data verificada para buscar novos dados
+        Log "Última verificação: $script:lastCheckDate" "Cyan"
+        $apiUrl = "https://pin-v2-six.vercel.app/api/data?since=$script:lastCheckDate&processed=false"
+
+        # Atualizar a última data verificada para a próxima chamada
+        $script:lastCheckDate = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
         Log "URL: $apiUrl" "Cyan"
 
         $response = Invoke-RestMethod -Uri $apiUrl -Method Get
@@ -110,7 +116,9 @@ function CheckForNewData() {
                 if ($success) {
                     # Marcar item como processado
                     Log "Marcando item como processado na API..." "Cyan"
-                    $markUrl = "https://pin-v2-six.vercel.app/api/data?single=true&markProcessed=true&since=$($item.timestamp)&processed=false"
+                    # Garantir que o timestamp esteja no formato correto para a Vercel
+                    $timestamp = [System.Web.HttpUtility]::UrlEncode($item.timestamp)
+                    $markUrl = "https://pin-v2-six.vercel.app/api/data?single=true&markProcessed=true&since=$timestamp&processed=false"
                     Log "URL: $markUrl" "Cyan"
 
                     try {
@@ -132,6 +140,9 @@ function CheckForNewData() {
         Log "Erro ao verificar API: $_" "Red"
     }
 }
+
+# Variável para armazenar a última data verificada
+$script:lastCheckDate = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
 
 # Executar a função principal
 CheckForNewData
