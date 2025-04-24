@@ -239,12 +239,42 @@ function ExecuteAutomation($data) {
         UpdateAutomationStatus "Executando comando: $nodeExe $argumentsString"
 
         try {
+            # Verificar se o Node.js está instalado
+            try {
+                $nodeVersion = & $nodeExe --version
+                UpdateAutomationStatus "Node.js encontrado: $nodeVersion"
+            } catch {
+                UpdateAutomationStatus "ERRO: Node.js não encontrado ou não está no PATH. Erro: $_"
+                throw "Node.js não encontrado. Por favor, instale o Node.js e tente novamente."
+            }
+
+            # Verificar se o script de automação existe
+            if (Test-Path $automationScript) {
+                UpdateAutomationStatus "Script de automação encontrado: $automationScript"
+            } else {
+                UpdateAutomationStatus "ERRO: Script de automação não encontrado: $automationScript"
+                throw "Script de automação não encontrado: $automationScript"
+            }
+
+            # Verificar se o Puppeteer está instalado
+            try {
+                $puppeteerCheck = & $nodeExe -e "try { require('puppeteer'); console.log('Puppeteer instalado'); } catch(e) { console.error('Puppeteer não instalado: ' + e.message); process.exit(1); }"
+                UpdateAutomationStatus "Verificação do Puppeteer: $puppeteerCheck"
+            } catch {
+                UpdateAutomationStatus "ERRO: Puppeteer não está instalado corretamente. Erro: $_"
+                UpdateAutomationStatus "Tentando instalar o Puppeteer..."
+                Start-Process -FilePath "npm" -ArgumentList "install puppeteer" -NoNewWindow -Wait
+            }
+
             # Criar um arquivo de log para a saída do processo
             $logFile = Join-Path -Path $appDataFolder -ChildPath "automation-log.txt"
             UpdateAutomationStatus "Log será salvo em: $logFile"
 
+            # Executar o comando Node.js com redirecionamento de saída para arquivo de log
+            UpdateAutomationStatus "Executando comando com redirecionamento para log: $nodeExe $argumentsString > $logFile 2>&1"
+
             # Executar o comando Node.js em uma nova janela para que seja visível
-            $process = Start-Process -FilePath $nodeExe -ArgumentList $argumentsString -NoNewWindow:$false -PassThru
+            $process = Start-Process -FilePath $nodeExe -ArgumentList $argumentsString -NoNewWindow:$false -PassThru -RedirectStandardOutput $logFile -RedirectStandardError "$logFile.error"
 
             UpdateAutomationStatus "Processo iniciado com ID: $($process.Id)"
 
@@ -254,16 +284,62 @@ function ExecuteAutomation($data) {
             # Verificar se o processo ainda está em execução
             if (-not $process.HasExited) {
                 UpdateAutomationStatus "Automação em execução. Navegador deve estar visível."
+
+                # Mostrar conteúdo do log até agora
+                if (Test-Path $logFile) {
+                    $logContent = Get-Content $logFile -ErrorAction SilentlyContinue
+                    if ($logContent) {
+                        UpdateAutomationStatus "Conteúdo do log até agora:"
+                        foreach ($line in $logContent) {
+                            UpdateAutomationStatus "  LOG: $line"
+                        }
+                    } else {
+                        UpdateAutomationStatus "Arquivo de log está vazio ou não pode ser lido."
+                    }
+                } else {
+                    UpdateAutomationStatus "Arquivo de log ainda não foi criado."
+                }
             } else {
                 # Se o processo já terminou, verificar o código de saída
                 if ($process.ExitCode -ne 0) {
+                    UpdateAutomationStatus "Processo terminou com erro. Código de saída: $($process.ExitCode)"
+
+                    # Mostrar conteúdo do log de erro
+                    if (Test-Path "$logFile.error") {
+                        $errorContent = Get-Content "$logFile.error" -ErrorAction SilentlyContinue
+                        if ($errorContent) {
+                            UpdateAutomationStatus "Conteúdo do log de erro:"
+                            foreach ($line in $errorContent) {
+                                UpdateAutomationStatus "  ERRO: $line"
+                            }
+                        }
+                    }
+
                     throw "Erro na execução do script de automação. Código de saída: $($process.ExitCode)"
                 } else {
                     UpdateAutomationStatus "Automação concluída rapidamente com sucesso."
+
+                    # Mostrar conteúdo do log
+                    if (Test-Path $logFile) {
+                        $logContent = Get-Content $logFile -ErrorAction SilentlyContinue
+                        if ($logContent) {
+                            UpdateAutomationStatus "Saída da automação:"
+                            foreach ($line in $logContent) {
+                                UpdateAutomationStatus "  SAÍDA: $line"
+                            }
+                        }
+                    }
                 }
             }
         } catch {
-            UpdateAutomationStatus "Erro ao iniciar processo: $_"
+            UpdateAutomationStatus "ERRO CRÍTICO ao iniciar processo: $_"
+
+            # Tentar obter mais informações sobre o erro
+            UpdateAutomationStatus "Detalhes do erro:"
+            UpdateAutomationStatus "  Tipo de exceção: $($_.Exception.GetType().FullName)"
+            UpdateAutomationStatus "  Mensagem: $($_.Exception.Message)"
+            UpdateAutomationStatus "  Local: $($_.InvocationInfo.PositionMessage)"
+
             throw
         }
 

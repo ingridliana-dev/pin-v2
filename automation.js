@@ -25,8 +25,37 @@ async function runAutomation(pin, name, debug = false) {
   let logs = [];
 
   function log(message) {
-    console.log(message);
-    logs.push(message);
+    // Adicionar timestamp aos logs
+    const timestamp = new Date().toISOString();
+    const formattedMessage = `[${timestamp}] ${message}`;
+    console.log(formattedMessage);
+    logs.push(formattedMessage);
+
+    // Tentar salvar o log em um arquivo (apenas em modo debug)
+    if (debug) {
+      try {
+        const fs = require("fs");
+        const path = require("path");
+        const logDir = path.join(
+          process.env.APPDATA || process.env.HOME || ".",
+          "PINReceiverApp"
+        );
+
+        // Tentar criar o diretório se não existir
+        try {
+          if (!fs.existsSync(logDir)) {
+            fs.mkdirSync(logDir, { recursive: true });
+          }
+        } catch (dirErr) {
+          console.error(`Erro ao criar diretório de log: ${dirErr.message}`);
+        }
+
+        const logFile = path.join(logDir, "puppeteer-debug.log");
+        fs.appendFileSync(logFile, formattedMessage + "\n");
+      } catch (e) {
+        console.error(`Erro ao salvar log em arquivo: ${e.message}`);
+      }
+    }
   }
 
   try {
@@ -50,17 +79,60 @@ async function runAutomation(pin, name, debug = false) {
       defaultViewport: { width: 1280, height: 720 }, // Viewport maior
     };
 
+    // Verificar o sistema operacional
+    log(`Sistema operacional detectado: ${process.platform}`);
+
     // Em ambiente de desenvolvimento local, podemos usar o Chrome instalado
-    if (process.env.NODE_ENV !== "production") {
-      try {
-        // Tentar usar o Chrome local em ambiente de desenvolvimento
-        if (process.platform === "win32") {
-          options.executablePath =
-            "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
+    try {
+      // Tentar usar o Chrome local em ambiente de desenvolvimento
+      if (process.platform === "win32") {
+        // Caminhos possíveis para o Chrome no Windows
+        const possiblePaths = [
+          "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+          "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+          process.env.LOCALAPPDATA +
+            "\\Google\\Chrome\\Application\\chrome.exe",
+          process.env.PROGRAMFILES +
+            "\\Google\\Chrome\\Application\\chrome.exe",
+          process.env["PROGRAMFILES(X86)"] +
+            "\\Google\\Chrome\\Application\\chrome.exe",
+        ];
+
+        // Verificar se os arquivos existem
+        const fs = require("fs");
+        for (const path of possiblePaths) {
+          try {
+            if (fs.existsSync(path)) {
+              log(`Chrome encontrado em: ${path}`);
+              options.executablePath = path;
+              break;
+            } else {
+              log(`Chrome não encontrado em: ${path}`);
+            }
+          } catch (e) {
+            log(`Erro ao verificar caminho do Chrome ${path}: ${e.message}`);
+          }
         }
-      } catch (e) {
-        log("Não foi possível usar o Chrome local, usando o Chrome embutido");
+
+        if (!options.executablePath) {
+          log(
+            "Nenhum caminho do Chrome foi encontrado, usando o Chrome embutido"
+          );
+        }
+      } else if (process.platform === "darwin") {
+        // macOS
+        options.executablePath =
+          "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+        log(`Usando caminho do Chrome para macOS: ${options.executablePath}`);
+      } else if (process.platform === "linux") {
+        // Linux
+        options.executablePath = "/usr/bin/google-chrome";
+        log(`Usando caminho do Chrome para Linux: ${options.executablePath}`);
       }
+    } catch (e) {
+      log(
+        `Não foi possível usar o Chrome local, usando o Chrome embutido: ${e.message}`
+      );
     }
 
     browser = await puppeteer.launch(options);
