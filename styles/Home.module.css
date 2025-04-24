@@ -150,28 +150,8 @@
   box-sizing: border-box;
 }
 
-.webhookToggle {
-  display: flex;
-  align-items: center;
-  margin-bottom: 0.5rem;
-}
-
-.webhookToggle input[type="checkbox"] {
-  margin-right: 0.5rem;
-  width: auto;
-  height: 1.2rem;
-  width: 1.2rem;
-}
-
-.webhookToggle label {
-  font-weight: 600;
-  margin-bottom: 0;
-  font-size: 0.9rem;
-  line-height: 1.2;
-}
-
 .webhookUrl {
-  margin-top: 0.75rem;
+  margin-top: 0;
 }
 
 .webhookUrl label {

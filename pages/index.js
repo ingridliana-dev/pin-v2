@@ -7,8 +7,7 @@ export default function Home() {
   const [name, setName] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  const [webhookUrl, setWebhookUrl] = useState("");
-  const [useWebhook, setUseWebhook] = useState(false);
+  const [webhookUrl, setWebhookUrl] = useState("http://localhost:8080");
 
   // Carregar a URL do webhook do localStorage
   useEffect(() => {
@@ -38,8 +37,8 @@ export default function Home() {
     setMessage("");
 
     try {
-      // Determinar qual endpoint usar
-      const endpoint = useWebhook && webhookUrl ? "/api/webhook" : "/api/data";
+      // Sempre usar o endpoint de webhook
+      const endpoint = "/api/webhook";
 
       const response = await fetch(endpoint, {
         method: "POST",
@@ -49,8 +48,8 @@ export default function Home() {
         body: JSON.stringify({
           pin,
           name,
-          // Incluir a URL do webhook se estiver usando o endpoint de webhook
-          ...(useWebhook && webhookUrl ? { webhookUrl } : {}),
+          // Sempre incluir a URL do webhook
+          webhookUrl,
         }),
       });
 
@@ -115,43 +114,31 @@ export default function Home() {
           </div>
 
           <div className={styles.webhookSection}>
-            <div className={styles.webhookToggle}>
-              <input
-                type="checkbox"
-                id="useWebhook"
-                checked={useWebhook}
-                onChange={(e) => setUseWebhook(e.target.checked)}
-              />
-              <label htmlFor="useWebhook">
-                Usar Webhook (Execução Imediata)
+            <div className={styles.webhookUrl}>
+              <label htmlFor="webhookUrl">
+                Configuração do Webhook (Execução Imediata):
               </label>
-            </div>
-
-            {useWebhook && (
-              <div className={styles.webhookUrl}>
-                <label htmlFor="webhookUrl">URL do Webhook:</label>
-                <div className={styles.webhookUrlInput}>
-                  <input
-                    type="text"
-                    id="webhookUrl"
-                    value={webhookUrl}
-                    onChange={(e) => setWebhookUrl(e.target.value)}
-                    placeholder="http://localhost:8080"
-                  />
-                  <button
-                    type="button"
-                    onClick={saveWebhookUrl}
-                    className={styles.saveButton}
-                  >
-                    Salvar
-                  </button>
-                </div>
-                <p className={styles.webhookHelp}>
-                  Para execução imediata, execute o arquivo PIN-Webhook.bat no
-                  seu computador.
-                </p>
+              <div className={styles.webhookUrlInput}>
+                <input
+                  type="text"
+                  id="webhookUrl"
+                  value={webhookUrl}
+                  onChange={(e) => setWebhookUrl(e.target.value)}
+                  placeholder="http://localhost:8080"
+                />
+                <button
+                  type="button"
+                  onClick={saveWebhookUrl}
+                  className={styles.saveButton}
+                >
+                  Salvar
+                </button>
               </div>
-            )}
+              <p className={styles.webhookHelp}>
+                Para execução imediata, execute o arquivo PIN-Webhook.bat no seu
+                computador.
+              </p>
+            </div>
           </div>
 
           <button type="submit" className={styles.button} disabled={loading}>
