@@ -7,8 +7,6 @@ export default function Home() {
   const [name, setName] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  // URL fixa do webhook
-  const webhookUrl = "http://localhost:8080";
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -22,8 +20,8 @@ export default function Home() {
     setMessage("");
 
     try {
-      // Sempre usar o endpoint de webhook
-      const endpoint = "/api/webhook";
+      // Usar a API principal que já tem o webhook integrado
+      const endpoint = "/api/data";
 
       const response = await fetch(endpoint, {
         method: "POST",
@@ -33,8 +31,6 @@ export default function Home() {
         body: JSON.stringify({
           pin,
           name,
-          // Sempre incluir a URL do webhook
-          webhookUrl,
         }),
       });
 

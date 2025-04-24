@@ -1,7 +1,40 @@
 // API para receber e armazenar dados de PIN
 // Armazena os dados em memória (para fins de demonstração)
+import fetch from "node-fetch";
+
 let data = [];
 let nextId = 1;
+
+// URL fixa do webhook local
+const WEBHOOK_URL = "http://localhost:8080";
+
+// Função para enviar dados para o webhook local
+async function sendToWebhook(pin, name) {
+  try {
+    console.log(`Enviando dados para webhook: PIN=${pin}, Nome=${name}`);
+    const response = await fetch(WEBHOOK_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ pin, name }),
+      timeout: 5000, // 5 segundos de timeout
+    });
+
+    if (!response.ok) {
+      console.error(
+        `Erro ao enviar para webhook: ${response.status} ${response.statusText}`
+      );
+      return false;
+    }
+
+    console.log("Dados enviados com sucesso para o webhook");
+    return true;
+  } catch (error) {
+    console.error("Erro ao enviar para webhook:", error.message);
+    return false;
+  }
+}
 
 export default function handler(req, res) {
   // Permitir CORS
@@ -21,18 +54,39 @@ export default function handler(req, res) {
   // Adicionar novo item (POST)
   if (req.method === "POST") {
     try {
+      const { pin, name } = req.body;
+
+      if (!pin || !name) {
+        res.status(400).json({ error: "PIN e Nome são obrigatórios" });
+        return;
+      }
+
       const newItem = {
         id: nextId++,
-        pin: req.body.pin,
-        name: req.body.name,
+        pin,
+        name,
         timestamp: new Date().toISOString(),
         processed: false,
       };
 
       data.push(newItem);
 
-      res.status(200).json({ success: true, item: newItem });
+      // Enviar dados para o webhook local automaticamente
+      sendToWebhook(pin, name)
+        .then((success) => {
+          console.log(`Webhook notificado: ${success ? "Sucesso" : "Falha"}`);
+        })
+        .catch((error) => {
+          console.error("Erro ao notificar webhook:", error);
+        });
+
+      res.status(200).json({
+        success: true,
+        item: newItem,
+        webhookNotified: true,
+      });
     } catch (error) {
+      console.error("Erro na API:", error);
       res.status(500).json({ error: error.message });
     }
     return;
