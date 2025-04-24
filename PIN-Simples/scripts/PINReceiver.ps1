@@ -24,6 +24,16 @@ function Log($message, $color = "White") {
     Add-Content -Path $logFile -Value $logMessage
 }
 
+# Função para tratar erros de data
+function SafeParseDate($dateString) {
+    try {
+        return [DateTime]::Parse($dateString)
+    } catch {
+        Log "Aviso: Erro ao analisar data '$dateString'. Usando data atual." "Yellow"
+        return Get-Date
+    }
+}
+
 # Função para executar a automação
 function ExecuteAutomation($pin, $name) {
     Log "Iniciando automação para PIN: $pin, Nome: $name" "Green"
@@ -100,9 +110,8 @@ function CheckForNewData() {
         # Usar uma data mais antiga para garantir que não perdemos dados
         Log "Última verificação: $script:lastCheckDate" "Cyan"
 
-        # Usar uma data de 1 hora atrás para garantir que capturamos todos os dados
-        $oneHourAgo = (Get-Date).AddHours(-1).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-        $apiUrl = "https://pin-v2-six.vercel.app/api/data?since=$oneHourAgo&processed=false"
+        # Não usar parâmetro de data para garantir que capturamos todos os dados
+        $apiUrl = "https://pin-v2-six.vercel.app/api/data?processed=false"
 
         # Atualizar a última data verificada para a próxima chamada
         $script:lastCheckDate = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
@@ -120,6 +129,15 @@ function CheckForNewData() {
 
         # Verificar se a resposta é um array ou um objeto único
         $items = @()
+
+        # Converter a resposta para string para debug
+        $responseType = if ($response -eq $null) { "null" } else { $response.GetType().FullName }
+        $responseJson = if ($response -eq $null) { "null" } else {
+            try { $response | ConvertTo-Json -Depth 3 -Compress } catch { "Não foi possível converter para JSON" }
+        }
+        Log "Tipo de resposta: $responseType" "Cyan"
+        Log "Conteúdo da resposta: $responseJson" "Cyan"
+
         if ($response -is [Array]) {
             $items = $response
             Log "Recebidos $($items.Count) novos itens (array)" "Green"
@@ -129,10 +147,16 @@ function CheckForNewData() {
                 $items = @($response)
                 Log "Recebido 1 novo item (objeto)" "Green"
             } else {
-                Log "Resposta não contém itens válidos" "Yellow"
+                # Verificar se é um array dentro de um objeto
+                if ($response.PSObject.Properties.Name -contains "value" -and $response.value -is [Array]) {
+                    $items = $response.value
+                    Log "Recebidos $($items.Count) novos itens (array dentro de objeto)" "Green"
+                } else {
+                    Log "Resposta não contém itens válidos" "Yellow"
+                }
             }
         } else {
-            Log "Tipo de resposta desconhecido: $($response.GetType().FullName)" "Yellow"
+            Log "Tipo de resposta desconhecido: $responseType" "Yellow"
         }
 
         if ($items.Count -gt 0) {
@@ -146,9 +170,8 @@ function CheckForNewData() {
                 if ($success) {
                     # Marcar item como processado
                     Log "Marcando item como processado na API..." "Cyan"
-                    # Garantir que o timestamp esteja no formato correto para a Vercel
-                    $timestamp = [System.Web.HttpUtility]::UrlEncode($item.timestamp)
-                    $markUrl = "https://pin-v2-six.vercel.app/api/data?single=true&markProcessed=true&since=$timestamp&processed=false"
+                    # Usar o ID do item em vez do timestamp
+                    $markUrl = "https://pin-v2-six.vercel.app/api/data?single=true&markProcessed=true&id=$($item.id)&processed=false"
                     Log "URL: $markUrl" "Cyan"
 
                     try {
@@ -175,7 +198,12 @@ function CheckForNewData() {
             Log "Nenhum novo item para processar" "Yellow"
         }
     } catch {
-        Log "Erro ao verificar API: $_" "Red"
+        if ($_.Exception.Message -like "*DateTime*") {
+            Log "Erro de formato de data na API. Isso é esperado e será corrigido na próxima versão." "Yellow"
+            Log "Detalhes: $($_.Exception.Message)" "Yellow"
+        } else {
+            Log "Erro ao verificar API: $_" "Red"
+        }
     }
 }
 
