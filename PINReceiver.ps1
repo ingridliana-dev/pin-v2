@@ -112,47 +112,55 @@ function CheckForNewData {
         $url = "$apiUrl`?since=$since&processed=false"
         $script:lastCheckTime = Get-Date
 
+        Write-Host "Verificando novos dados na API..." -ForegroundColor Cyan
+        Write-Host "URL: $url" -ForegroundColor DarkGray
+
         # Usar try-catch específico para a chamada de API
         try {
             $response = Invoke-RestMethod -Uri $url -Method Get -UseBasicParsing
+            Write-Host "Resposta da API recebida com sucesso" -ForegroundColor Green
         }
         catch {
-            Write-Host "Erro ao chamar a API: $_"
+            Write-Host "Erro ao chamar a API: $_" -ForegroundColor Red
             return $null
         }
 
         # Verificar se a resposta está vazia
         if ($null -eq $response -or ($response -is [array] -and $response.Count -eq 0)) {
             # Sem novos dados
+            Write-Host "Nenhum novo dado encontrado" -ForegroundColor DarkGray
             return $null
         }
 
         # Se a resposta for um array, processar cada item
         if ($response -is [array]) {
-            Write-Host "Recebidos $($response.Count) novos itens"
+            Write-Host "Recebidos $($response.Count) novos itens" -ForegroundColor Green
             foreach ($item in $response) {
                 if ($item.PIN -and $item.Name -and $item.timestamp) {
+                    Write-Host "Processando item: PIN=$($item.PIN), Nome=$($item.Name)" -ForegroundColor Yellow
                     ProcessNewData $item
                 }
                 else {
-                    Write-Host "Item recebido com formato inválido: $($item | ConvertTo-Json -Compress)"
+                    Write-Host "Item recebido com formato inválido: $($item | ConvertTo-Json -Compress)" -ForegroundColor Red
                 }
             }
             return $response
         }
         # Se a resposta for um único objeto com PIN
         elseif ($response.PIN -and $response.Name -and $response.timestamp) {
-            Write-Host "Recebido 1 novo item"
+            Write-Host "Recebido 1 novo item" -ForegroundColor Green
+            Write-Host "Detalhes: PIN=$($response.PIN), Nome=$($response.Name)" -ForegroundColor Yellow
             ProcessNewData $response
             return $response
         }
         else {
-            Write-Host "Resposta recebida em formato inesperado: $($response | ConvertTo-Json -Compress)"
+            Write-Host "Resposta recebida em formato inesperado: $($response | ConvertTo-Json -Compress)" -ForegroundColor Red
             return $null
         }
     }
     catch {
-        Write-Host "Erro ao verificar novos dados: $_"
+        Write-Host "Erro ao verificar novos dados: $_" -ForegroundColor Red
+        Write-Host "Stack Trace: $($_.ScriptStackTrace)" -ForegroundColor Red
         return $null
     }
 }
@@ -162,9 +170,11 @@ function ProcessNewData($item) {
     # Verificar se já processamos este item antes (baseado no timestamp)
     $existingItem = $script:receivedData | Where-Object { $_.OriginalTimestamp -eq $item.timestamp }
     if ($existingItem) {
-        Write-Host "Item já processado anteriormente. Ignorando."
+        Write-Host "Item já processado anteriormente. Ignorando." -ForegroundColor Yellow
         return
     }
+
+    Write-Host "Processando novo item de dados..." -ForegroundColor Cyan
 
     # Criar novo objeto de dados
     $newData = [ordered]@{
@@ -175,12 +185,20 @@ function ProcessNewData($item) {
         OriginalTimestamp = $item.timestamp
     }
 
+    Write-Host "Novo objeto de dados criado:" -ForegroundColor Cyan
+    Write-Host "  PIN: $($newData.PIN)" -ForegroundColor White
+    Write-Host "  Nome: $($newData.Name)" -ForegroundColor White
+    Write-Host "  Recebido em: $($newData.ReceivedAt)" -ForegroundColor White
+    Write-Host "  Status: $($newData.AutomationStatus)" -ForegroundColor White
+
     # Adicionar aos dados armazenados (usando ArrayList para evitar problemas com +=)
     if ($null -eq $script:receivedData) {
+        Write-Host "Inicializando ArrayList para armazenar dados" -ForegroundColor Cyan
         $script:receivedData = New-Object System.Collections.ArrayList
     }
 
     if ($script:receivedData -is [array] -and $script:receivedData -isnot [System.Collections.ArrayList]) {
+        Write-Host "Convertendo array para ArrayList" -ForegroundColor Cyan
         $tempArray = New-Object System.Collections.ArrayList
         foreach ($item in $script:receivedData) {
             $tempArray.Add($item) | Out-Null
@@ -189,24 +207,38 @@ function ProcessNewData($item) {
     }
 
     # Usar o método Add em vez do operador +=
+    Write-Host "Adicionando novo item ao ArrayList" -ForegroundColor Cyan
     $script:receivedData.Add($newData) | Out-Null
     SaveData $script:receivedData
 
     # Mostrar notificação
+    Write-Host "Mostrando notificação na bandeja do sistema" -ForegroundColor Cyan
     $trayIcon.BalloonTipTitle = "Novos dados recebidos!"
     $trayIcon.BalloonTipText = "PIN: $($newData.PIN), Nome: $($newData.Name)"
     $trayIcon.ShowBalloonTip(5000)
 
     # Executar automação
-    ExecuteAutomation $newData
+    Write-Host "Iniciando processo de automação..." -ForegroundColor Magenta
+    $automationResult = ExecuteAutomation $newData
+
+    if ($automationResult) {
+        Write-Host "Automação concluída com sucesso!" -ForegroundColor Green
+    } else {
+        Write-Host "Automação falhou. Verifique os logs para mais detalhes." -ForegroundColor Red
+    }
 
     # Marcar como processado na API
     try {
+        Write-Host "Marcando item como processado na API..." -ForegroundColor Cyan
         $markUrl = "$apiUrl`?single=true&markProcessed=true&since=$($item.timestamp)&processed=false"
+        Write-Host "URL: $markUrl" -ForegroundColor DarkGray
         Invoke-RestMethod -Uri $markUrl -Method Get -UseBasicParsing | Out-Null
+        Write-Host "Item marcado como processado com sucesso" -ForegroundColor Green
     } catch {
-        Write-Host "Erro ao marcar item como processado: $_"
+        Write-Host "Erro ao marcar item como processado: $_" -ForegroundColor Red
     }
+
+    Write-Host "Processamento do item concluído" -ForegroundColor Green
 }
 
 # Executar automação
