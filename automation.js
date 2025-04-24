@@ -22,9 +22,10 @@ async function runAutomation(pin, name, debug = false) {
   try {
     // Iniciar o navegador
     log("Iniciando o navegador Chrome...");
-    browser = await puppeteer.launch({
-      headless: "new", // Sempre usar modo headless para funcionar no Railway
-      // Não especificar executablePath para usar o Chrome instalado no ambiente
+
+    // Configuração específica para ambiente Vercel (serverless)
+    const options = {
+      headless: "new", // Sempre usar modo headless
       args: [
         "--ignore-certificate-errors",
         "--no-sandbox",
@@ -36,7 +37,22 @@ async function runAutomation(pin, name, debug = false) {
         "--single-process",
       ],
       ignoreHTTPSErrors: true,
-    });
+    };
+
+    // Em ambiente de desenvolvimento local, podemos usar o Chrome instalado
+    if (process.env.NODE_ENV !== "production") {
+      try {
+        // Tentar usar o Chrome local em ambiente de desenvolvimento
+        if (process.platform === "win32") {
+          options.executablePath =
+            "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
+        }
+      } catch (e) {
+        log("Não foi possível usar o Chrome local, usando o Chrome embutido");
+      }
+    }
+
+    browser = await puppeteer.launch(options);
 
     const page = await browser.newPage();
 
