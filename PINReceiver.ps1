@@ -35,7 +35,19 @@ function LoadData {
             }
 
             Write-Host "Dados carregados com sucesso: $($data.Count) itens"
-            return $data
+
+            # Converter para array normal para evitar problemas com PSObjects
+            $resultArray = @()
+            foreach ($item in $data) {
+                # Converter cada item para um hashtable normal
+                $hashtable = @{}
+                foreach ($prop in $item.PSObject.Properties) {
+                    $hashtable[$prop.Name] = $prop.Value
+                }
+                $resultArray += $hashtable
+            }
+
+            return $resultArray
         }
         catch {
             Write-Host "Erro ao carregar dados: $_"
@@ -163,8 +175,21 @@ function ProcessNewData($item) {
         OriginalTimestamp = $item.timestamp
     }
 
-    # Adicionar aos dados armazenados
-    $script:receivedData += $newData
+    # Adicionar aos dados armazenados (usando ArrayList para evitar problemas com +=)
+    if ($null -eq $script:receivedData) {
+        $script:receivedData = New-Object System.Collections.ArrayList
+    }
+
+    if ($script:receivedData -is [array] -and $script:receivedData -isnot [System.Collections.ArrayList]) {
+        $tempArray = New-Object System.Collections.ArrayList
+        foreach ($item in $script:receivedData) {
+            $tempArray.Add($item) | Out-Null
+        }
+        $script:receivedData = $tempArray
+    }
+
+    # Usar o método Add em vez do operador +=
+    $script:receivedData.Add($newData) | Out-Null
     SaveData $script:receivedData
 
     # Mostrar notificação
@@ -230,7 +255,18 @@ function UpdateAutomationStatus($status) {
 }
 
 # Carregar dados existentes
-$script:receivedData = LoadData
+$loadedData = LoadData
+
+# Inicializar receivedData como ArrayList
+$script:receivedData = New-Object System.Collections.ArrayList
+
+# Adicionar dados carregados ao ArrayList
+if ($loadedData -and $loadedData.Count -gt 0) {
+    foreach ($item in $loadedData) {
+        $script:receivedData.Add($item) | Out-Null
+    }
+    Write-Host "Dados carregados e convertidos para ArrayList: $($script:receivedData.Count) itens"
+}
 
 # Criar formulário para visualizar dados
 function ShowDataViewer {
