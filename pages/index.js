@@ -1,65 +1,67 @@
-import { useState } from 'react';
-import Head from 'next/head';
-import styles from '../styles/Home.module.css';
+import { useState } from "react";
+import Head from "next/head";
+import styles from "../styles/Home.module.css";
 
 export default function Home() {
-  const [pin, setPin] = useState('');
-  const [name, setName] = useState('');
+  const [pin, setPin] = useState("");
+  const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     // Limpar mensagens anteriores
-    setMessage('');
-    setError('');
+    setMessage("");
+    setError("");
     setSuccess(false);
-    
+
     // Validar entrada
     if (!pin || pin.length !== 4 || !/^\d+$/.test(pin)) {
-      setError('O PIN deve ter exatamente 4 dígitos');
+      setError("O PIN deve ter exatamente 4 dígitos");
       return;
     }
-    
+
     if (!name || name.trim().length < 2) {
-      setError('Por favor, insira um nome válido');
+      setError("Por favor, insira um nome válido");
       return;
     }
-    
+
     try {
       setLoading(true);
-      
+
       // Enviar dados para a API
-      const response = await fetch('/api/data', {
-        method: 'POST',
+      const response = await fetch("/submit", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          PIN: pin,
-          Name: name,
+          pin: pin,
+          name: name,
         }),
       });
-      
+
       const data = await response.json();
-      
+
       if (!response.ok) {
-        throw new Error(data.error || 'Erro ao enviar dados');
+        throw new Error(data.error || "Erro ao enviar dados");
       }
-      
+
       // Sucesso
       setSuccess(true);
-      setMessage('Dados enviados com sucesso! O aplicativo Windows processará esses dados.');
-      
+      setMessage(
+        "Dados enviados com sucesso! O aplicativo Windows processará esses dados."
+      );
+
       // Limpar formulário
-      setPin('');
-      setName('');
+      setPin("");
+      setName("");
     } catch (err) {
-      console.error('Erro:', err);
-      setError(err.message || 'Ocorreu um erro ao enviar os dados');
+      console.error("Erro:", err);
+      setError(err.message || "Ocorreu um erro ao enviar os dados");
     } finally {
       setLoading(false);
     }
@@ -69,7 +71,10 @@ export default function Home() {
     <div className={styles.container}>
       <Head>
         <title>Formulário de PIN</title>
-        <meta name="description" content="Formulário para envio de PIN e nome" />
+        <meta
+          name="description"
+          content="Formulário para envio de PIN e nome"
+        />
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
@@ -103,26 +108,18 @@ export default function Home() {
             />
           </div>
 
-          <button 
-            type="submit" 
-            disabled={loading} 
-            className={styles.button}
-          >
-            {loading ? 'Enviando...' : 'Send'}
+          <button type="submit" disabled={loading} className={styles.button}>
+            {loading ? "Enviando..." : "Send"}
           </button>
         </form>
 
         {error && (
           <div className={styles.error}>
-            Erro ao executar a automação. Detalhes: {error}
+            Erro ao enviar os dados. Detalhes: {error}
           </div>
         )}
 
-        {success && message && (
-          <div className={styles.success}>
-            {message}
-          </div>
-        )}
+        {success && message && <div className={styles.success}>{message}</div>}
       </main>
     </div>
   );
