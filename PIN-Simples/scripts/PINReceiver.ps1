@@ -3,6 +3,9 @@
 # Adicionar referência ao System.Web para codificação de URL
 Add-Type -AssemblyName System.Web
 
+# Configurar TLS 1.2 para conexões HTTPS
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
 # Função para registrar logs
 function Log($message, $color = "White") {
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -94,21 +97,48 @@ function CheckForNewData() {
     Log "Verificando novos dados na API..." "Cyan"
 
     try {
-        # Usar a última data verificada para buscar novos dados
+        # Usar uma data mais antiga para garantir que não perdemos dados
         Log "Última verificação: $script:lastCheckDate" "Cyan"
-        $apiUrl = "https://pin-v2-six.vercel.app/api/data?since=$script:lastCheckDate&processed=false"
+
+        # Usar uma data de 1 hora atrás para garantir que capturamos todos os dados
+        $oneHourAgo = (Get-Date).AddHours(-1).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+        $apiUrl = "https://pin-v2-six.vercel.app/api/data?since=$oneHourAgo&processed=false"
 
         # Atualizar a última data verificada para a próxima chamada
         $script:lastCheckDate = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
         Log "URL: $apiUrl" "Cyan"
 
-        $response = Invoke-RestMethod -Uri $apiUrl -Method Get
+        # Adicionar cabeçalhos para evitar problemas de cache
+        $headers = @{
+            "Cache-Control" = "no-cache"
+            "Pragma" = "no-cache"
+            "If-Modified-Since" = "0"
+        }
+
+        $response = Invoke-RestMethod -Uri $apiUrl -Method Get -Headers $headers
         Log "Resposta da API recebida com sucesso" "Green"
 
-        if ($response.Count -gt 0) {
-            Log "Recebidos $($response.Count) novos itens" "Green"
+        # Verificar se a resposta é um array ou um objeto único
+        $items = @()
+        if ($response -is [Array]) {
+            $items = $response
+            Log "Recebidos $($items.Count) novos itens (array)" "Green"
+        } elseif ($response -is [PSCustomObject]) {
+            # Se for um objeto único, adicionar ao array
+            if ($response.pin -and $response.name) {
+                $items = @($response)
+                Log "Recebido 1 novo item (objeto)" "Green"
+            } else {
+                Log "Resposta não contém itens válidos" "Yellow"
+            }
+        } else {
+            Log "Tipo de resposta desconhecido: $($response.GetType().FullName)" "Yellow"
+        }
 
-            foreach ($item in $response) {
+        if ($items.Count -gt 0) {
+            Log "Processando $($items.Count) itens" "Green"
+
+            foreach ($item in $items) {
                 Log "Processando item: PIN=$($item.pin), Nome=$($item.name)" "Cyan"
 
                 $success = ExecuteAutomation $item.pin $item.name
@@ -122,10 +152,18 @@ function CheckForNewData() {
                     Log "URL: $markUrl" "Cyan"
 
                     try {
-                        $markResponse = Invoke-RestMethod -Uri $markUrl -Method Get
+                        # Adicionar cabeçalhos para evitar problemas de cache
+                        $headers = @{
+                            "Cache-Control" = "no-cache"
+                            "Pragma" = "no-cache"
+                            "If-Modified-Since" = "0"
+                        }
+
+                        $markResponse = Invoke-RestMethod -Uri $markUrl -Method Get -Headers $headers
                         Log "Item marcado como processado com sucesso" "Green"
                     } catch {
                         Log "Erro ao marcar item como processado: $_" "Red"
+                        Log "URL usada: $markUrl" "Yellow"
                     }
                 } else {
                     Log "Automação falhou para este item." "Red"
@@ -134,7 +172,7 @@ function CheckForNewData() {
                 Log "Processamento do item concluído" "Green"
             }
         } else {
-            Log "Nenhum novo item encontrado" "Yellow"
+            Log "Nenhum novo item para processar" "Yellow"
         }
     } catch {
         Log "Erro ao verificar API: $_" "Red"
@@ -144,5 +182,24 @@ function CheckForNewData() {
 # Variável para armazenar a última data verificada
 $script:lastCheckDate = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
 
-# Executar a função principal
-CheckForNewData
+# Intervalo de verificação em segundos
+$checkInterval = 30
+
+Log "Iniciando monitoramento da API..." "Green"
+Log "Pressione Ctrl+C para encerrar o script" "Yellow"
+
+# Loop principal - verificar a API a cada X segundos
+try {
+    while ($true) {
+        # Executar a função principal
+        CheckForNewData
+
+        # Aguardar o intervalo definido
+        Log "Aguardando $checkInterval segundos até a próxima verificação..." "Cyan"
+        Start-Sleep -Seconds $checkInterval
+    }
+} catch {
+    Log "Erro no loop principal: $_" "Red"
+} finally {
+    Log "Script encerrado" "Yellow"
+}
