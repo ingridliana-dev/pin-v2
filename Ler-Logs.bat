@@ -1,0 +1,3 @@
+@echo off
+echo Lendo logs da automacao...
+powershell -ExecutionPolicy Bypass -File ler-logs.ps1
