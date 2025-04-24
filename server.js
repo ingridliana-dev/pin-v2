@@ -9,7 +9,21 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+
+// Servir arquivos estáticos
 app.use(express.static(path.join(__dirname)));
+
+// Rotas específicas para arquivos estáticos (para garantir que funcionem na Vercel)
+app.get("/styles.css", (req, res) => {
+  res.setHeader("Content-Type", "text/css");
+  res.sendFile(path.join(__dirname, "styles.css"));
+});
+
+app.get("/script.js", (req, res) => {
+  res.setHeader("Content-Type", "application/javascript");
+  res.sendFile(path.join(__dirname, "script.js"));
+});
 
 // Rota para servir o formulário
 app.get("/", (req, res) => {
