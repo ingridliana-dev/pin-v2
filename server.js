@@ -160,6 +160,102 @@ app.get("/check-target", async (req, res) => {
   }
 });
 
+// Armazenar dados recebidos para consulta pelo aplicativo C#
+const submittedData = [];
+
+// Rota para o aplicativo C# consultar os dados
+app.get("/api/data", (req, res) => {
+  try {
+    // Verificar se há um parâmetro 'since' na requisição
+    const since = req.query.since ? new Date(req.query.since) : null;
+
+    // Se não houver dados, retornar um objeto vazio
+    if (submittedData.length === 0) {
+      return res.json({});
+    }
+
+    // Se houver um timestamp 'since', filtrar os dados
+    if (since) {
+      const recentData = submittedData.filter(
+        (data) => new Date(data.timestamp) > since
+      );
+
+      // Retornar o dado mais recente, se houver
+      if (recentData.length > 0) {
+        return res.json(recentData[recentData.length - 1]);
+      }
+
+      // Se não houver dados recentes, retornar um objeto vazio
+      return res.json({});
+    }
+
+    // Se não houver filtro, retornar o dado mais recente
+    return res.json(submittedData[submittedData.length - 1]);
+  } catch (error) {
+    console.error("Erro ao consultar dados:", error);
+    res.status(500).json({ error: "Erro ao consultar dados" });
+  }
+});
+
+// Modificar a rota de submit para armazenar os dados
+app.post("/submit", async (req, res) => {
+  try {
+    const { pin, name } = req.body;
+
+    // Validação do PIN (4 dígitos numéricos)
+    if (!/^\d{4}$/.test(pin)) {
+      return res
+        .status(400)
+        .json({ message: "O PIN deve conter exatamente 4 dígitos numéricos." });
+    }
+
+    // Validação do nome (não vazio)
+    if (!name || !name.trim()) {
+      return res
+        .status(400)
+        .json({ message: "Por favor, insira um nome válido." });
+    }
+
+    console.log(`Dados recebidos: PIN=${pin}, Nome=${name}`);
+
+    // Armazenar os dados recebidos com timestamp
+    submittedData.push({
+      PIN: pin,
+      Name: name,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Manter apenas os últimos 100 registros para não consumir muita memória
+    if (submittedData.length > 100) {
+      submittedData.shift(); // Remove o registro mais antigo
+    }
+
+    // Executar a automação
+    try {
+      const result = await runAutomation(pin, name);
+      if (result.success) {
+        res.json({
+          message: "Dados enviados com sucesso! A automação foi iniciada.",
+          logs: result.logs,
+        });
+      } else {
+        res.status(500).json({
+          message: "Erro ao executar a automação. Detalhes: " + result.error,
+          logs: result.logs,
+        });
+      }
+    } catch (error) {
+      console.error("Erro na automação:", error);
+      res.status(500).json({
+        message: "Erro ao executar a automação. Detalhes: " + error.message,
+      });
+    }
+  } catch (error) {
+    console.error("Erro no servidor:", error);
+    res.status(500).json({ message: "Erro interno do servidor." });
+  }
+});
+
 // Iniciar o servidor
 app.listen(PORT, () => {
   console.log(`Servidor rodando em http://localhost:${PORT}`);
@@ -171,4 +267,5 @@ app.listen(PORT, () => {
   console.log(
     `- Verificar serviço alvo: http://localhost:${PORT}/check-target`
   );
+  console.log(`- API para aplicativo C#: http://localhost:${PORT}/api/data`);
 });
