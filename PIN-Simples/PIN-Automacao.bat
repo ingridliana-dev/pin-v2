@@ -32,20 +32,39 @@ echo.
 :: Verificar se o Puppeteer está instalado
 cd "%~dp0scripts"
 echo Verificando dependencias...
+
+:: Tentar instalar o Puppeteer de qualquer forma
+echo Instalando/atualizando o Puppeteer...
+call npm install puppeteer --save
+
+:: Verificar se a instalação foi bem-sucedida
 node -e "try { require('puppeteer'); console.log('Puppeteer instalado com sucesso.'); } catch(e) { console.error('Puppeteer nao instalado: ' + e.message); process.exit(1); }" >nul 2>nul
 
 if %ERRORLEVEL% NEQ 0 (
-    echo Puppeteer nao encontrado. Instalando...
-    npm install
+    color 0C
+    echo ERRO: Falha ao verificar o Puppeteer apos a instalacao.
+    echo Tentando uma abordagem alternativa...
+
+    :: Tentar uma abordagem alternativa
+    call npm install puppeteer@latest --save
+
+    :: Verificar novamente
+    node -e "try { require('puppeteer'); console.log('OK'); } catch(e) { process.exit(1); }"
+
     if %ERRORLEVEL% NEQ 0 (
         color 0C
-        echo ERRO: Falha ao instalar o Puppeteer.
+        echo ERRO: Nao foi possivel instalar o Puppeteer.
+        echo Por favor, execute manualmente:
+        echo   cd "%~dp0scripts"
+        echo   npm install puppeteer --save
         echo.
         pause
         exit /b 1
+    ) else (
+        echo Puppeteer instalado com sucesso na segunda tentativa.
     )
 ) else (
-    echo Puppeteer encontrado.
+    echo Puppeteer instalado com sucesso.
 )
 
 :: Voltar para o diretório original
