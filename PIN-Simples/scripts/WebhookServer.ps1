@@ -91,14 +91,76 @@ function ExecuteAutomation($pin, $name) {
 }
 
 # Função para processar requisições HTTP
-function ProcessRequest($request) {
+function ProcessRequest($context) {
     try {
+        $request = $context.Request
         Log "Requisição recebida: $($request.HttpMethod) $($request.Url.PathAndQuery)" "Cyan"
 
         # Verificar se é uma requisição POST
         if ($request.HttpMethod -ne "POST") {
             Log "Método não permitido: $($request.HttpMethod)" "Yellow"
-            SendResponse $request 405 "Method Not Allowed"
+
+            # Se for GET, mostrar uma página amigável
+            if ($request.HttpMethod -eq "GET") {
+                $htmlResponse = @"
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Servidor Webhook PIN</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        h1 { color: #0070f3; }
+        .status { background-color: #e8f5e9; padding: 15px; border-radius: 5px; margin: 20px 0; }
+        .status.success { background-color: #e8f5e9; color: #2e7d32; }
+        .info { background-color: #e3f2fd; padding: 15px; border-radius: 5px; margin: 20px 0; }
+        code { background-color: #f5f5f5; padding: 2px 5px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <h1>Servidor Webhook PIN</h1>
+    <div class="status success">
+        <strong>Status:</strong> Servidor rodando e aguardando dados
+    </div>
+    <div class="info">
+        <p>Este é o servidor webhook para automação PIN. Ele está funcionando corretamente e aguardando dados do formulário web.</p>
+        <p>Endereço do servidor: <code>http://localhost:8080</code></p>
+        <p>Para usar:</p>
+        <ol>
+            <li>Mantenha este servidor rodando</li>
+            <li>Acesse o formulário web: <a href="https://pin-v2-six.vercel.app/" target="_blank">https://pin-v2-six.vercel.app/</a></li>
+            <li>Preencha o PIN e Nome e clique em Enviar</li>
+            <li>A automação será executada imediatamente neste computador</li>
+        </ol>
+    </div>
+    <p><small>Servidor iniciado em: $(Get-Date)</small></p>
+</body>
+</html>
+"@
+                # Usar o contexto completo para a resposta
+                $response = $context.Response
+                $response.StatusCode = 200
+                $response.ContentType = "text/html"
+
+                $buffer = [System.Text.Encoding]::UTF8.GetBytes($htmlResponse)
+                $response.ContentLength64 = $buffer.Length
+                $response.OutputStream.Write($buffer, 0, $buffer.Length)
+                $response.OutputStream.Close()
+
+                Log "Resposta HTML enviada: 200" "Green"
+                return
+            }
+
+            # Usar o contexto completo para a resposta
+            $response = $context.Response
+            $response.StatusCode = 405
+            $response.ContentType = "text/plain"
+
+            $buffer = [System.Text.Encoding]::UTF8.GetBytes("Method Not Allowed")
+            $response.ContentLength64 = $buffer.Length
+            $response.OutputStream.Write($buffer, 0, $buffer.Length)
+            $response.OutputStream.Close()
+
+            Log "Resposta enviada: 405 Method Not Allowed" "Yellow"
             return
         }
 
@@ -114,7 +176,19 @@ function ProcessRequest($request) {
             # Verificar se os campos necessários estão presentes
             if (-not $data.pin -or -not $data.name) {
                 Log "Campos obrigatórios ausentes" "Yellow"
-                SendResponse $request 400 "Bad Request: PIN and name are required"
+
+                # Usar o contexto completo para a resposta
+                $response = $context.Response
+                $response.StatusCode = 400
+                $response.ContentType = "text/plain"
+
+                $message = "Bad Request: PIN and name are required"
+                $buffer = [System.Text.Encoding]::UTF8.GetBytes($message)
+                $response.ContentLength64 = $buffer.Length
+                $response.OutputStream.Write($buffer, 0, $buffer.Length)
+                $response.OutputStream.Close()
+
+                Log "Resposta enviada: 400 $message" "Yellow"
                 return
             }
 
@@ -123,32 +197,75 @@ function ProcessRequest($request) {
             $success = ExecuteAutomation $data.pin $data.name
 
             # Enviar resposta
+            $response = $context.Response
+
             if ($success) {
-                SendResponse $request 200 "Automação iniciada com sucesso!"
+                $response.StatusCode = 200
+                $message = "Automação iniciada com sucesso!"
             } else {
-                SendResponse $request 500 "Falha ao iniciar automação"
+                $response.StatusCode = 500
+                $message = "Falha ao iniciar automação"
             }
+
+            $response.ContentType = "text/plain"
+            $buffer = [System.Text.Encoding]::UTF8.GetBytes($message)
+            $response.ContentLength64 = $buffer.Length
+            $response.OutputStream.Write($buffer, 0, $buffer.Length)
+            $response.OutputStream.Close()
+
+            Log "Resposta enviada: $($response.StatusCode) $message" "Green"
         } catch {
             Log "Erro ao processar JSON: $_" "Red"
-            SendResponse $request 400 "Bad Request: Invalid JSON"
+
+            # Usar o contexto completo para a resposta
+            $response = $context.Response
+            $response.StatusCode = 400
+            $response.ContentType = "text/plain"
+
+            $message = "Bad Request: Invalid JSON"
+            $buffer = [System.Text.Encoding]::UTF8.GetBytes($message)
+            $response.ContentLength64 = $buffer.Length
+            $response.OutputStream.Write($buffer, 0, $buffer.Length)
+            $response.OutputStream.Close()
+
+            Log "Resposta enviada: 400 $message" "Yellow"
         }
     } catch {
         Log "Erro ao processar requisição: $_" "Red"
-        SendResponse $request 500 "Internal Server Error"
+
+        # Usar o contexto completo para a resposta
+        try {
+            $response = $context.Response
+            $response.StatusCode = 500
+            $response.ContentType = "text/plain"
+
+            $message = "Internal Server Error"
+            $buffer = [System.Text.Encoding]::UTF8.GetBytes($message)
+            $response.ContentLength64 = $buffer.Length
+            $response.OutputStream.Write($buffer, 0, $buffer.Length)
+            $response.OutputStream.Close()
+
+            Log "Resposta enviada: 500 $message" "Red"
+        } catch {
+            Log "Erro crítico ao enviar resposta de erro: $_" "Red"
+        }
     }
 }
 
 # Função para enviar resposta HTTP
 function SendResponse($request, $statusCode, $message) {
     try {
-        $response = $request.GetResponse()
+        # Obter o objeto de resposta do contexto
+        $response = $request.HttpListenerContext.Response
         $response.StatusCode = $statusCode
         $response.StatusDescription = $message
 
+        # Converter a mensagem para bytes
         $responseBytes = [System.Text.Encoding]::UTF8.GetBytes($message)
         $response.ContentLength64 = $responseBytes.Length
         $response.ContentType = "text/plain"
 
+        # Escrever a resposta
         $output = $response.OutputStream
         $output.Write($responseBytes, 0, $responseBytes.Length)
         $output.Close()
@@ -156,6 +273,29 @@ function SendResponse($request, $statusCode, $message) {
         Log "Resposta enviada: $statusCode $message" "Green"
     } catch {
         Log "Erro ao enviar resposta: $_" "Red"
+    }
+}
+
+# Função para enviar resposta HTML
+function SendHtmlResponse($request, $statusCode, $htmlContent) {
+    try {
+        # Obter o objeto de resposta do contexto
+        $response = $request.HttpListenerContext.Response
+        $response.StatusCode = $statusCode
+
+        # Converter o HTML para bytes
+        $responseBytes = [System.Text.Encoding]::UTF8.GetBytes($htmlContent)
+        $response.ContentLength64 = $responseBytes.Length
+        $response.ContentType = "text/html"
+
+        # Escrever a resposta
+        $output = $response.OutputStream
+        $output.Write($responseBytes, 0, $responseBytes.Length)
+        $output.Close()
+
+        Log "Resposta HTML enviada: $statusCode" "Green"
+    } catch {
+        Log "Erro ao enviar resposta HTML: $_" "Red"
     }
 }
 
@@ -177,8 +317,8 @@ try {
         # Aguardar uma requisição
         $context = $listener.GetContext()
 
-        # Processar a requisição
-        ProcessRequest $context.Request
+        # Processar a requisição com o contexto completo
+        ProcessRequest $context
     }
 } catch [System.OperationCanceledException] {
     # Ignorar exceção de cancelamento (Ctrl+C)
