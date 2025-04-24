@@ -23,13 +23,17 @@ async function runAutomation(pin, name, debug = false) {
     // Iniciar o navegador
     log("Iniciando o navegador Chrome...");
     browser = await puppeteer.launch({
-      headless: debug ? false : "new", // Mostrar o navegador apenas em modo debug
-      executablePath:
-        "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", // Caminho para o Chrome
+      headless: "new", // Sempre usar modo headless para funcionar no Railway
+      // Não especificar executablePath para usar o Chrome instalado no ambiente
       args: [
         "--ignore-certificate-errors",
         "--no-sandbox",
         "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+        "--no-first-run",
+        "--no-zygote",
+        "--single-process",
       ],
       ignoreHTTPSErrors: true,
     });
@@ -52,7 +56,11 @@ async function runAutomation(pin, name, debug = false) {
     // Navegar para a URL especificada
     log("Navegando para a URL...");
     try {
-      await page.goto("https://localhost:47990/pin#PIN", {
+      // Usar a URL de destino configurada por variável de ambiente ou usar o padrão
+      const targetUrl =
+        process.env.TARGET_URL || "https://localhost:47990/pin#PIN";
+      log(`Navegando para a URL de destino: ${targetUrl}`);
+      await page.goto(targetUrl, {
         waitUntil: "networkidle2",
         timeout: 30000,
       });
@@ -299,7 +307,9 @@ async function runAutomation(pin, name, debug = false) {
       log("Navegando diretamente para a URL do PIN Pairing...");
       try {
         // Navegar diretamente para a URL do PIN Pairing
-        await page.goto("https://localhost:47990/pin#PIN", {
+        const targetUrl =
+          process.env.TARGET_URL || "https://localhost:47990/pin#PIN";
+        await page.goto(targetUrl, {
           waitUntil: "networkidle2",
         });
         log("Navegação direta para PIN Pairing concluída");

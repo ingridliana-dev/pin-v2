@@ -53,11 +53,9 @@ app.post("/submit", async (req, res) => {
       }
     } catch (error) {
       console.error("Erro na automação:", error);
-      res
-        .status(500)
-        .json({
-          message: "Erro ao executar a automação. Detalhes: " + error.message,
-        });
+      res.status(500).json({
+        message: "Erro ao executar a automação. Detalhes: " + error.message,
+      });
     }
   } catch (error) {
     console.error("Erro no servidor:", error);
@@ -105,7 +103,7 @@ app.get("/test-automation", async (req, res) => {
 app.get("/check-target", async (req, res) => {
   try {
     const https = require("https");
-    const url = "https://localhost:47990/pin";
+    const url = process.env.TARGET_URL || "https://localhost:47990/pin";
 
     // Tentar acessar a URL alvo
     const request = https.get(
