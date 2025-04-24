@@ -300,7 +300,7 @@ function SendHtmlResponse($request, $statusCode, $htmlContent) {
 }
 
 # Configuração do servidor HTTP
-$port = 8080
+$port = 8081  # Mudando para porta 8081
 $prefix = "http://localhost:$port/"
 $listener = New-Object System.Net.HttpListener
 $listener.Prefixes.Add($prefix)

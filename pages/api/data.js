@@ -6,7 +6,7 @@ let data = [];
 let nextId = 1;
 
 // URL fixa do webhook local
-const WEBHOOK_URL = "http://localhost:8080";
+const WEBHOOK_URL = "http://localhost:8081";
 
 // Função para enviar dados para o webhook local
 async function sendToWebhook(pin, name) {
