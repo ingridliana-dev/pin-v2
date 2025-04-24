@@ -45,37 +45,58 @@ function SaveData($data) {
 function CheckForNewData {
     try {
         $since = $lastCheckTime.ToString("o")
-        $url = "$apiUrl`?since=$since"
-        $lastCheckTime = Get-Date
-        
+        $url = "$apiUrl`?since=$since&processed=false"
+        $script:lastCheckTime = Get-Date
+
         $response = Invoke-RestMethod -Uri $url -Method Get -UseBasicParsing
-        
-        if ($response -and $response.PIN) {
-            $newData = @{
-                PIN = $response.PIN
-                Name = $response.Name
-                ReceivedAt = (Get-Date).ToString("o")
-                AutomationStatus = "Iniciando automação..."
+
+        # Se a resposta for um array, processar cada item
+        if ($response -is [array] -and $response.Count -gt 0) {
+            foreach ($item in $response) {
+                ProcessNewData $item
             }
-            
-            $script:receivedData += $newData
-            SaveData $script:receivedData
-            
-            # Mostrar notificação
-            $trayIcon.BalloonTipTitle = "Novos dados recebidos!"
-            $trayIcon.BalloonTipText = "PIN: $($newData.PIN), Nome: $($newData.Name)"
-            $trayIcon.ShowBalloonTip(5000)
-            
-            # Executar automação
-            ExecuteAutomation $newData
-            
-            return $newData
+            return $response
         }
-        
+        # Se a resposta for um único objeto (não array) com PIN
+        elseif ($response -and $response.PIN) {
+            ProcessNewData $response
+            return $response
+        }
+
         return $null
     } catch {
         Write-Host "Erro ao verificar novos dados: $_"
         return $null
+    }
+}
+
+# Processar um novo item de dados
+function ProcessNewData($item) {
+    $newData = @{
+        PIN = $item.PIN
+        Name = $item.Name
+        ReceivedAt = (Get-Date).ToString("o")
+        AutomationStatus = "Iniciando automação..."
+        OriginalTimestamp = $item.timestamp
+    }
+
+    $script:receivedData += $newData
+    SaveData $script:receivedData
+
+    # Mostrar notificação
+    $trayIcon.BalloonTipTitle = "Novos dados recebidos!"
+    $trayIcon.BalloonTipText = "PIN: $($newData.PIN), Nome: $($newData.Name)"
+    $trayIcon.ShowBalloonTip(5000)
+
+    # Executar automação
+    ExecuteAutomation $newData
+
+    # Marcar como processado na API
+    try {
+        $markUrl = "$apiUrl`?single=true&markProcessed=true&since=$($item.timestamp)&processed=false"
+        Invoke-RestMethod -Uri $markUrl -Method Get -UseBasicParsing | Out-Null
+    } catch {
+        Write-Host "Erro ao marcar item como processado: $_"
     }
 }
 
@@ -86,30 +107,30 @@ function ExecuteAutomation($data) {
         $data.AutomationStatus = "Em execução..."
         SaveData $script:receivedData
         UpdateAutomationStatus "Executando automação para PIN: $($data.PIN)..."
-        
+
         # Simular passos da automação
         Start-Sleep -Seconds 1
         UpdateAutomationStatus "Preenchendo PIN: $($data.PIN)..."
         Start-Sleep -Milliseconds 500
-        
+
         UpdateAutomationStatus "Preenchendo Nome: $($data.Name)..."
         Start-Sleep -Milliseconds 500
-        
+
         UpdateAutomationStatus "Enviando dados..."
         Start-Sleep -Seconds 1
-        
+
         # Aqui você pode implementar a automação real
         # Por exemplo, usando SendKeys para enviar teclas para aplicativos:
         # [System.Windows.Forms.SendKeys]::SendWait($data.PIN)
         # [System.Windows.Forms.SendKeys]::SendWait("{TAB}")
         # [System.Windows.Forms.SendKeys]::SendWait($data.Name)
-        
+
         # Atualizar status de conclusão
         $data.AutomationStatus = "Concluída com sucesso"
         $data.AutomationCompletedAt = (Get-Date).ToString("o")
         SaveData $script:receivedData
         UpdateAutomationStatus "Automação concluída com sucesso!"
-        
+
         return $true
     } catch {
         $data.AutomationStatus = "Erro: $_"
@@ -133,35 +154,35 @@ function ShowDataViewer {
     $form.Text = "Dados de PIN Recebidos"
     $form.Size = New-Object System.Drawing.Size(800, 400)
     $form.StartPosition = "CenterScreen"
-    
+
     $listView = New-Object System.Windows.Forms.ListView
     $listView.View = [System.Windows.Forms.View]::Details
     $listView.FullRowSelect = $true
     $listView.GridLines = $true
     $listView.Dock = [System.Windows.Forms.DockStyle]::Fill
-    
+
     # Adicionar colunas
     $listView.Columns.Add("PIN", 80) | Out-Null
     $listView.Columns.Add("Nome", 150) | Out-Null
     $listView.Columns.Add("Data/Hora de Recebimento", 150) | Out-Null
     $listView.Columns.Add("Status da Automação", 150) | Out-Null
     $listView.Columns.Add("Automação Concluída em", 150) | Out-Null
-    
+
     # Adicionar dados
     $sortedData = $script:receivedData | Sort-Object { [DateTime]::Parse($_.ReceivedAt) } -Descending
-    
+
     foreach ($data in $sortedData) {
         $item = New-Object System.Windows.Forms.ListViewItem($data.PIN)
         $item.SubItems.Add($data.Name) | Out-Null
         $item.SubItems.Add([DateTime]::Parse($data.ReceivedAt).ToString("dd/MM/yyyy HH:mm:ss")) | Out-Null
         $item.SubItems.Add($data.AutomationStatus -or "Não iniciada") | Out-Null
-        
+
         if ($data.AutomationCompletedAt) {
             $item.SubItems.Add([DateTime]::Parse($data.AutomationCompletedAt).ToString("dd/MM/yyyy HH:mm:ss")) | Out-Null
         } else {
             $item.SubItems.Add("-") | Out-Null
         }
-        
+
         # Colorir a linha de acordo com o status da automação
         if ($data.AutomationStatus) {
             if ($data.AutomationStatus -like "Concluída*") {
@@ -172,10 +193,10 @@ function ShowDataViewer {
                 $item.BackColor = [System.Drawing.Color]::LightYellow
             }
         }
-        
+
         $listView.Items.Add($item) | Out-Null
     }
-    
+
     # Botão de atualização
     $btnRefresh = New-Object System.Windows.Forms.Button
     $btnRefresh.Text = "Atualizar"
@@ -183,21 +204,21 @@ function ShowDataViewer {
     $btnRefresh.Height = 30
     $btnRefresh.Add_Click({
         $listView.Items.Clear()
-        
+
         $sortedData = $script:receivedData | Sort-Object { [DateTime]::Parse($_.ReceivedAt) } -Descending
-        
+
         foreach ($data in $sortedData) {
             $item = New-Object System.Windows.Forms.ListViewItem($data.PIN)
             $item.SubItems.Add($data.Name) | Out-Null
             $item.SubItems.Add([DateTime]::Parse($data.ReceivedAt).ToString("dd/MM/yyyy HH:mm:ss")) | Out-Null
             $item.SubItems.Add($data.AutomationStatus -or "Não iniciada") | Out-Null
-            
+
             if ($data.AutomationCompletedAt) {
                 $item.SubItems.Add([DateTime]::Parse($data.AutomationCompletedAt).ToString("dd/MM/yyyy HH:mm:ss")) | Out-Null
             } else {
                 $item.SubItems.Add("-") | Out-Null
             }
-            
+
             # Colorir a linha de acordo com o status da automação
             if ($data.AutomationStatus) {
                 if ($data.AutomationStatus -like "Concluída*") {
@@ -208,21 +229,21 @@ function ShowDataViewer {
                     $item.BackColor = [System.Drawing.Color]::LightYellow
                 }
             }
-            
+
             $listView.Items.Add($item) | Out-Null
         }
     })
-    
+
     # Adicionar controles ao formulário
     $form.Controls.Add($listView)
     $form.Controls.Add($btnRefresh)
-    
+
     # Mostrar formulário
     $form.Add_FormClosing({
         $_.Cancel = $true
         $form.Hide()
     })
-    
+
     $form.ShowDialog() | Out-Null
 }
 
@@ -243,7 +264,7 @@ $checkNowItem.Add_Click({
     $trayIcon.BalloonTipTitle = "Receptor de PIN"
     $trayIcon.BalloonTipText = "Verificando novos dados..."
     $trayIcon.ShowBalloonTip(3000)
-    
+
     $newData = CheckForNewData
     if (-not $newData) {
         $trayIcon.BalloonTipTitle = "Receptor de PIN"
