@@ -1,0 +1,9 @@
+{
+  "name": "pin-automacao",
+  "version": "1.0.0",
+  "description": "Automação para preenchimento de formulários PIN",
+  "main": "automacao-puppeteer.js",
+  "dependencies": {
+    "puppeteer": "^21.0.0"
+  }
+}
