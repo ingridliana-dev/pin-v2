@@ -1,14 +1,16 @@
 .container {
   min-height: 100vh;
-  padding: 0 0.5rem;
+  padding: 0 1rem;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .main {
-  padding: 5rem 0;
+  padding: 2rem 0;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -21,35 +23,57 @@
 .title {
   margin: 0;
   line-height: 1.15;
-  font-size: 4rem;
+  font-size: 2.5rem;
   text-align: center;
 }
 
 .description {
   line-height: 1.5;
-  font-size: 1.5rem;
+  font-size: 1.2rem;
   text-align: center;
-  margin: 2rem 0;
+  margin: 1.5rem 0;
+}
+
+/* Estilos para telas maiores */
+@media (min-width: 768px) {
+  .container {
+    padding: 0 2rem;
+  }
+
+  .main {
+    padding: 5rem 0;
+  }
+
+  .title {
+    font-size: 4rem;
+  }
+
+  .description {
+    font-size: 1.5rem;
+    margin: 2rem 0;
+  }
 }
 
 .form {
   width: 100%;
   max-width: 500px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 1.5rem;
   background-color: #f8f9fa;
   border-radius: 10px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-sizing: border-box;
 }
 
 .formGroup {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.25rem;
 }
 
 .formGroup label {
   display: block;
   margin-bottom: 0.5rem;
   font-weight: 600;
+  font-size: 0.95rem;
 }
 
 .formGroup input {
@@ -58,6 +82,7 @@
   font-size: 1rem;
   border: 1px solid #ced4da;
   border-radius: 4px;
+  box-sizing: border-box;
 }
 
 .button {
@@ -70,6 +95,7 @@
   border-radius: 4px;
   cursor: pointer;
   transition: background-color 0.3s;
+  margin-top: 0.5rem;
 }
 
 .button:hover {
@@ -81,6 +107,21 @@
   cursor: not-allowed;
 }
 
+/* Estilos para telas maiores */
+@media (min-width: 768px) {
+  .form {
+    padding: 2rem;
+  }
+
+  .formGroup {
+    margin-bottom: 1.5rem;
+  }
+
+  .formGroup label {
+    font-size: 1rem;
+  }
+}
+
 .message {
   margin-top: 1rem;
   padding: 0.75rem;
@@ -88,14 +129,25 @@
   text-align: center;
   background-color: #e8f5e9;
   color: #2e7d32;
+  font-size: 0.9rem;
+  line-height: 1.3;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (min-width: 768px) {
+  .message {
+    font-size: 1rem;
+  }
 }
 
 .webhookSection {
-  margin-bottom: 1.5rem;
-  padding: 1rem;
+  margin-bottom: 1.25rem;
+  padding: 0.75rem;
   background-color: #f0f4f8;
   border-radius: 4px;
   border: 1px dashed #ccc;
+  box-sizing: border-box;
 }
 
 .webhookToggle {
@@ -107,19 +159,30 @@
 .webhookToggle input[type="checkbox"] {
   margin-right: 0.5rem;
   width: auto;
+  height: 1.2rem;
+  width: 1.2rem;
 }
 
 .webhookToggle label {
   font-weight: 600;
   margin-bottom: 0;
+  font-size: 0.9rem;
+  line-height: 1.2;
 }
 
 .webhookUrl {
-  margin-top: 1rem;
+  margin-top: 0.75rem;
+}
+
+.webhookUrl label {
+  font-size: 0.9rem;
+  display: block;
+  margin-bottom: 0.5rem;
 }
 
 .webhookUrlInput {
   display: flex;
+  flex-direction: column;
   gap: 0.5rem;
   margin-top: 0.5rem;
 }
@@ -127,13 +190,14 @@
 .webhookUrlInput input {
   flex: 1;
   padding: 0.75rem;
-  font-size: 1rem;
+  font-size: 0.9rem;
   border: 1px solid #ced4da;
   border-radius: 4px;
+  box-sizing: border-box;
 }
 
 .saveButton {
-  padding: 0.75rem 1rem;
+  padding: 0.75rem;
   font-size: 0.9rem;
   background-color: #28a745;
   color: white;
@@ -149,7 +213,40 @@
 
 .webhookHelp {
   margin-top: 0.5rem;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: #6c757d;
   font-style: italic;
+  line-height: 1.3;
+}
+
+/* Estilos para telas maiores */
+@media (min-width: 768px) {
+  .webhookSection {
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .webhookToggle label {
+    font-size: 1rem;
+  }
+
+  .webhookUrl label {
+    font-size: 1rem;
+  }
+
+  .webhookUrlInput {
+    flex-direction: row;
+  }
+
+  .webhookUrlInput input {
+    font-size: 1rem;
+  }
+
+  .saveButton {
+    padding: 0.75rem 1rem;
+  }
+
+  .webhookHelp {
+    font-size: 0.85rem;
+  }
 }
